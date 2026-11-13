@@ -1,16 +1,44 @@
 {% extends "notes/base.html" %}
+{% load cache %}
 
 {% block content %}
+  <form method="get">
+    <input name="q" value="{{ request.GET.q }}" placeholder="Поиск по заголовку">
+    <select name="category">
+      <option value="">Все категории</option>
+      {% for c in categories %}
+        <option value="{{ c.pk }}">{{ c.name }} ({{ c.notes_count }})</option>
+      {% endfor %}
+    </select>
+    <label><input type="checkbox" name="active" value="1"> Только невыполненные</label>
+    <button type="submit">Найти</button>
+  </form>
+
+  <p>Найдено: {{ page.paginator.count }}</p>
   <a class="btn" href="{% url 'notes:create' %}">+ Новая заметка</a>
-  {% for note in notes %}
-    <article class="note {% if note.is_done %}done{% endif %}">
-      <h2>{{ note.title }}</h2>
-      <p>{{ note.text|linebreaksbr }}</p>
-      <small>{{ note.created_at|date:"d.m.Y H:i" }}</small>
-      <a href="{% url 'notes:update' note.pk %}">Изменить</a>
-      <a href="{% url 'notes:delete' note.pk %}">Удалить</a>
-    </article>
-  {% empty %}
-    <p>Заметок пока нет.</p>
+
+  {% for note in page %}
+    {% cache 3600 note_card note.pk note.updated_at %}
+      <article class="note {% if note.is_done %}done{% endif %}">
+        <h2>{{ note.title }}</h2>
+        <p>{{ note.text|truncatechars:150 }}</p>
+        <small>
+          {{ note.category.name }} · {{ note.owner.username }} ·
+          {% for tag in note.tags.all %}#{{ tag.name }} {% endfor %}
+        </small>
+        <a href="{% url 'notes:update' note.pk %}">Изменить</a>
+        <a href="{% url 'notes:delete' note.pk %}">Удалить</a>
+      </article>
+    {% endcache %}
   {% endfor %}
+
+  <nav>
+    {% if page.has_previous %}
+      <a href="?{% if request.GET.q %}q={{ request.GET.q|urlencode }}&{% endif %}{% if request.GET.category %}category={{ request.GET.category }}&{% endif %}{% if request.GET.active %}active=1&{% endif %}page={{ page.previous_page_number }}">← Назад</a>
+    {% endif %}
+    Страница {{ page.number }} из {{ page.paginator.num_pages }}
+    {% if page.has_next %}
+      <a href="?{% if request.GET.q %}q={{ request.GET.q|urlencode }}&{% endif %}{% if request.GET.category %}category={{ request.GET.category }}&{% endif %}{% if request.GET.active %}active=1&{% endif %}page={{ page.next_page_number }}">Вперёд →</a>
+    {% endif %}
+  </nav>
 {% endblock %}
