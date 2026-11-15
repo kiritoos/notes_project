@@ -1,5 +1,7 @@
 from django.conf import settings
+from django.contrib.postgres.indexes import GinIndex, OpClass
 from django.db import models
+from django.db.models.functions import Upper
 
 class Category(models.Model):
     name = models.CharField("Название", max_length=100, unique=True)
@@ -30,7 +32,7 @@ class Note(models.Model):
     tags = models.ManyToManyField(Tag, blank=True, related_name="notes", verbose_name="Теги")
 
     class Meta:
-        ordering = ["-created_at", "-id"] # Добавили "-id" для стабильной сортировки
+        ordering = ["-created_at", "-id"]
         verbose_name = "Заметка"
         verbose_name_plural = "Заметки"
         indexes = [
@@ -41,6 +43,7 @@ class Note(models.Model):
                 condition=models.Q(is_done=False),
                 name="note_active_created_idx",
             ),
+            GinIndex(OpClass(Upper("title"), name="gin_trgm_ops"), name="note_title_trgm_idx"),
         ]
 
     def __str__(self):
